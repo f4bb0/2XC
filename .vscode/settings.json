@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "cstdint": "c"
+        "cstdint": "c",
+        "encoder.h": "c",
+        "pid.h": "c"
     }
 }

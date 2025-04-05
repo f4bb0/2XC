@@ -34,6 +34,6 @@ int GetEncoderPulse_3()
 //速度计算
 float CalculatePulse(int pulse)
 {
-	return ( (float)(pulse-30000)*100.00/100.00 );
+	return ( (float)(pulse-30000)*1000.00/18000.00 );
 }
 
