@@ -55,11 +55,13 @@ typedef struct {
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-char RxBuffer[RXBUFFERSIZE];   //接受数据
-char TxBuffer[TXBUFFERSIZE];   //发送数据
-uint8_t aRxBuffer;            //接受中断缓冲
-uint8_t Uart1_Rx_Cnt = 0;    //接受缓冲计数
-uint8_t RxSucceeflag = 0;    //接受成功标志
+char RxBuffer1[RXBUFFERSIZE];   //接受数据
+char TxBuffer1[TXBUFFERSIZE];   //发送数据
+uint8_t RxSucceeflag1 = 0;    //接受成功标志
+
+char RxBuffer2[RXBUFFERSIZE];   //接受数据
+char TxBuffer2[TXBUFFERSIZE];   //发送数据
+uint8_t RxSucceeflag2 = 0;    //接受成功标志
 
 // 传感器数据变量
 float aX = 0, aY = 0, aZ = 0;          // 加速度数据
@@ -70,6 +72,7 @@ float RollX = 0, PitchY = 0, YawZ = 0; // 姿态角数据
 uint8_t hexData[] = {0xFF, 0xAA, 0x52};
 
 WheelSpeeds Currentspeeds;
+int TargetSpeed = 0, TargetOmega = 0;
 bool Speedupdateflag = 0, Pidupdateflag = 0, debug = 0;
 /* USER CODE END PV */
 
@@ -155,16 +158,20 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // 确保正确启动第一次接收
-  if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer, 44) != HAL_OK)
+  if(HAL_UART_Receive_IT(&huart1, (uint8_t *)RxBuffer1, 44) != HAL_OK)
   {
       Error_Handler();
+  }
+  if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer2, 44) != HAL_OK)
+  {
+        Error_Handler();
   }
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1); 
   HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
   HAL_TIM_Base_Start_IT(&htim6);
-  HAL_TIM_Base_Start_IT(&htim7);
+  HAL_TIM_Base_Start_IT(&htim7); //debug
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
 
@@ -174,29 +181,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    if(RxSucceeflag == 1)
+    if(RxSucceeflag2 == 1)
     {
-//        //HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
-//        memset(TxBuffer, 0x00, sizeof(TxBuffer));
-//        sprintf(TxBuffer, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
-//                wX, wY, wZ, RollX, PitchY, YawZ);
-//        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer, strlen(TxBuffer), 0xFFFF);
-//        // 等待发送完成
-//        while(HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_TX);
-//
-//        // 最后再清除标志
-        RxSucceeflag = 0;
+        //HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
+        memset(TxBuffer2, 0x00, sizeof(TxBuffer2));
+        sprintf(TxBuffer2, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
+                wX, wY, wZ, RollX, PitchY, YawZ);
+        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer2, strlen(TxBuffer2), 100);
+        // 等待发送完成
+        ///?  while(HAL_UART_GetState(&huart2) == HAL_UART_STATE_BUSY_TX);
+
+        // 最后再清除标志
+        RxSucceeflag2 = 0;
     }
     if(debug == 1){
 
              /* ------------------调试用------------------*/
-    //	        // 利用 sprintf 将结果附加到 info 数组后面
-    //	     	 char info[100]="Target:";
-    //	        sprintf(info + strlen(info), " FL: %6.2f", Targetspeeds.wheel_FL);
-    //	        sprintf(info + strlen(info), " FR: %6.2f", Targetspeeds.wheel_FR);
-    //	        sprintf(info + strlen(info), " RL: %6.2f", Targetspeeds.wheel_RL);
-    //	        sprintf(info + strlen(info), " RR: %6.2f\n", Targetspeeds.wheel_RR);
-    //	        HAL_UART_Transmit(&huart1, (uint8_t*)info, strlen(info), 50);
+    	        // 利用 sprintf 将结果附加到 info 数组后面
+    	     	 char info[100]="Target:";
+    	        sprintf(info + strlen(info), " RL: %6d", TargetSpeed);
+    	        sprintf(info + strlen(info), " RR: %6d\n", TargetOmega);
+    	        HAL_UART_Transmit(&huart1, (uint8_t*)info, strlen(info), 50);
     	     // 调试输出当前脉冲数据
     	     char info1[100] = "Pace:";
     	     sprintf(info1 + strlen(info1), " L: %6.2f", Currentspeeds.wheel_L);
@@ -291,7 +296,18 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
         __HAL_UART_CLEAR_FLAG(huart, UART_FLAG_ORE | UART_FLAG_NE | UART_FLAG_FE | UART_FLAG_PE);
         
         // 重新启动接收
-        if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer, 44) != HAL_OK)
+        if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer2, 44) != HAL_OK)
+        {
+            Error_Handler();
+        }
+    }
+    if(huart == &huart1)
+    {
+        // 清除错误标志
+        __HAL_UART_CLEAR_FLAG(huart, UART_FLAG_ORE | UART_FLAG_NE | UART_FLAG_FE | UART_FLAG_PE);
+
+        // 重新启动接收
+        if(HAL_UART_Receive_IT(&huart1, (uint8_t *)RxBuffer1, 44) != HAL_OK)
         {
             Error_Handler();
         }
@@ -300,58 +316,78 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if(huart != &huart2) return;
+    if(huart == &huart1) {
 
     // Check for valid packet header (0x55)
-    if(RxBuffer[0] != 0x55) {
-        HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer, 44);
+    if(RxBuffer1[0] != 0x55) {
+        HAL_UART_Receive_IT(&huart1, (uint8_t *)RxBuffer1, 44);
         return;
     }
 
-    // Process acceleration data (0x51)
-    if(RxBuffer[1] == 0x51) {
-        int16_t rawAx = (RxBuffer[3] << 8) | RxBuffer[2];
-        int16_t rawAy = (RxBuffer[5] << 8) | RxBuffer[4];
-        int16_t rawAz = (RxBuffer[7] << 8) | RxBuffer[6];
-        
-        // Convert to physical units (m/s²)
-        aX = (float)(rawAx) / 32768.0f * 16.0f * 9.81f;
-        aY = (float)(rawAy) / 32768.0f * 16.0f * 9.81f;
-        aZ = (float)(rawAz) / 32768.0f * 16.0f * 9.81f;
-    }
-
-    // Process angular velocity data (0x52)
-    if(RxBuffer[12] == 0x52) {
-        int16_t rawWx = (RxBuffer[14] << 8) | RxBuffer[13];
-        int16_t rawWy = (RxBuffer[16] << 8) | RxBuffer[15];
-        int16_t rawWz = (RxBuffer[18] << 8) | RxBuffer[17];
-        
-        // Convert to degrees per second
-        wX = (float)(rawWx) / 32768.0f * 2000.0f;
-        wY = (float)(rawWy) / 32768.0f * 2000.0f;
-        wZ = (float)(rawWz) / 32768.0f * 2000.0f;
-    }
-
-    // Process angle data (0x53)
-    if(RxBuffer[23] == 0x53) {
-        int16_t rawRoll = (RxBuffer[25] << 8) | RxBuffer[24];
-        int16_t rawPitch = (RxBuffer[27] << 8) | RxBuffer[26];
-        int16_t rawYaw = (RxBuffer[29] << 8) | RxBuffer[28];
-        
-        // Convert to degrees
-        RollX = (float)(rawRoll) / 32768.0f * 180.0f;
-        PitchY = (float)(rawPitch) / 32768.0f * 180.0f;
-        YawZ = (float)(rawYaw) / 32768.0f * 180.0f;
-    }
-
     // 在函数末尾确保重新启动接收
-    if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer, 44) != HAL_OK)
+    if(HAL_UART_Receive_IT(&huart1, (uint8_t *)RxBuffer1, 44) != HAL_OK)
     {
         Error_Handler();
     }
     
     // 将RxSucceeflag的设置移到这里
-    RxSucceeflag = 1;
+    RxSucceeflag1 = 1;
+
+    }
+    if(huart == &huart2) {
+
+        // Check for valid packet header (0x55)
+        if(RxBuffer2[0] != 0x55) {
+            HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer2, 44);
+            return;
+        }
+
+        // Process acceleration data (0x51)
+        if(RxBuffer2[1] == 0x51) {
+            int16_t rawAx = (RxBuffer2[3] << 8) | RxBuffer2[2];
+            int16_t rawAy = (RxBuffer2[5] << 8) | RxBuffer2[4];
+            int16_t rawAz = (RxBuffer2[7] << 8) | RxBuffer2[6];
+
+            // Convert to physical units (m/s²)
+            aX = (float)(rawAx) / 32768.0f * 16.0f * 9.81f;
+            aY = (float)(rawAy) / 32768.0f * 16.0f * 9.81f;
+            aZ = (float)(rawAz) / 32768.0f * 16.0f * 9.81f;
+        }
+
+        // Process angular velocity data (0x52)
+        if(RxBuffer2[12] == 0x52) {
+            int16_t rawWx = (RxBuffer2[14] << 8) | RxBuffer2[13];
+            int16_t rawWy = (RxBuffer2[16] << 8) | RxBuffer2[15];
+            int16_t rawWz = (RxBuffer2[18] << 8) | RxBuffer2[17];
+
+            // Convert to degrees per second
+            wX = (float)(rawWx) / 32768.0f * 2000.0f;
+            wY = (float)(rawWy) / 32768.0f * 2000.0f;
+            wZ = (float)(rawWz) / 32768.0f * 2000.0f;
+        }
+
+        // Process angle data (0x53)
+        if(RxBuffer2[23] == 0x53) {
+            int16_t rawRoll = (RxBuffer2[25] << 8) | RxBuffer2[24];
+            int16_t rawPitch = (RxBuffer2[27] << 8) | RxBuffer2[26];
+            int16_t rawYaw = (RxBuffer2[29] << 8) | RxBuffer2[28];
+
+            // Convert to degrees
+            RollX = (float)(rawRoll) / 32768.0f * 180.0f;
+            PitchY = (float)(rawPitch) / 32768.0f * 180.0f;
+            YawZ = (float)(rawYaw) / 32768.0f * 180.0f;
+        }
+
+        // 在函数末尾确保重新启动接收
+        if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer2, 44) != HAL_OK)
+        {
+            Error_Handler();
+        }
+
+        // 将RxSucceeflag的设置移到这里
+        RxSucceeflag2 = 1;
+
+        }
 }
 /* USER CODE END 4 */
 
