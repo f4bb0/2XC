@@ -47,17 +47,17 @@ typedef struct {
 #define MAX_SPEED 1000.0f
 
 // PID Constants
-#define ANGLE_PID_KP    10.0f
-#define ANGLE_PID_KI    2.0f
-#define ANGLE_PID_KD    0.00001f
+#define ANGLE_PID_KP    15.0f
+#define ANGLE_PID_KI    3.0f
+#define ANGLE_PID_KD    0.01f
 
-#define SPEED_PID_KP    0.8f
-#define SPEED_PID_KI    0.05f
-#define SPEED_PID_KD    0.1f
+#define SPEED_PID_KP    1.0f   
+#define SPEED_PID_KI    0.1f 
+#define SPEED_PID_KD    0.05f 
 
-#define TURN_PID_KP     2.0f
-#define TURN_PID_KI     0.0f
-#define TURN_PID_KD     0.1f
+#define TURN_PID_KP     2.5f   
+#define TURN_PID_KI     0.1f   
+#define TURN_PID_KD     0.2f   
 
 // Wheel PID Constants 
 #define WHEEL_PID_KP    2.0f
