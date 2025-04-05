@@ -18,11 +18,18 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "tim.h"
+#include "usart.h"
+#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include "motor.h"
+#include "encoder.h"
+//#include "pid.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,16 +41,18 @@
 /* USER CODE BEGIN PD */
 #define RXBUFFERSIZE  255     //最大的接受字节数
 #define TXBUFFERSIZE  255     //最大发送字节数
+#define MAX_SPEED 1000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+typedef struct {
+    float wheel_L; // 左前轮速度
+    float wheel_R; // 右前轮速度
+} WheelSpeeds;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 char RxBuffer[RXBUFFERSIZE];   //接受数据
@@ -59,15 +68,46 @@ float RollX = 0, PitchY = 0, YawZ = 0; // 姿态角数据
 
 // Z轴角度归零指令
 uint8_t hexData[] = {0xFF, 0xAA, 0x52};
+
+WheelSpeeds Currentspeeds;
+bool Speedupdateflag = 0, Pidupdateflag = 0, debug = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
-static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
+void MotorRun(int left_front_MotorPWM, int right_front_MotorPWM)
+{
+    // 左前轮 (FL)
+    if (left_front_MotorPWM == 0) {
+        // Brake - set both channels high
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED);
+    } else if (left_front_MotorPWM > 0) {
+        // Forward
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, left_front_MotorPWM);
+    } else {
+        // Backward
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, -left_front_MotorPWM);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0);
+    }
 
+    // 右前轮 (FR) 
+    if (right_front_MotorPWM == 0) {
+        // Brake - set both channels high
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED);
+    } else if (right_front_MotorPWM > 0) {
+        // Forward
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, 0);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, right_front_MotorPWM);
+    } else {
+        // Backward
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, -right_front_MotorPWM);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, 0);
+    }
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -106,14 +146,28 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
-  
+  MX_TIM4_Init();
+  MX_TIM5_Init();
+  MX_TIM6_Init();
+  MX_TIM7_Init();
+  MX_TIM9_Init();
+  MX_TIM1_Init();
+  /* USER CODE BEGIN 2 */
+
   // 确保正确启动第一次接收
   if(HAL_UART_Receive_IT(&huart2, (uint8_t *)RxBuffer, 44) != HAL_OK)
   {
       Error_Handler();
   }
-  
-  /* USER CODE BEGIN 2 */
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1); 
+  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
+  HAL_TIM_Base_Start_IT(&htim6);
+  HAL_TIM_Base_Start_IT(&htim7);
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+  HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -122,18 +176,34 @@ int main(void)
   {
     if(RxSucceeflag == 1)
     {
-        HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
-        memset(TxBuffer, 0x00, sizeof(TxBuffer));
-        sprintf(TxBuffer, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n", 
-                wX, wY, wZ, RollX, PitchY, YawZ);
-        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer, strlen(TxBuffer), 0xFFFF);
-        
-        // 等待发送完成
-        while(HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_TX);
-        
-        // 最后再清除标志
+//        //HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
+//        memset(TxBuffer, 0x00, sizeof(TxBuffer));
+//        sprintf(TxBuffer, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
+//                wX, wY, wZ, RollX, PitchY, YawZ);
+//        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer, strlen(TxBuffer), 0xFFFF);
+//        // 等待发送完成
+//        while(HAL_UART_GetState(&huart1) == HAL_UART_STATE_BUSY_TX);
+//
+//        // 最后再清除标志
         RxSucceeflag = 0;
     }
+    if(debug == 1){
+
+             /* ------------------调试用------------------*/
+    //	        // 利用 sprintf 将结果附加到 info 数组后面
+    //	     	 char info[100]="Target:";
+    //	        sprintf(info + strlen(info), " FL: %6.2f", Targetspeeds.wheel_FL);
+    //	        sprintf(info + strlen(info), " FR: %6.2f", Targetspeeds.wheel_FR);
+    //	        sprintf(info + strlen(info), " RL: %6.2f", Targetspeeds.wheel_RL);
+    //	        sprintf(info + strlen(info), " RR: %6.2f\n", Targetspeeds.wheel_RR);
+    //	        HAL_UART_Transmit(&huart1, (uint8_t*)info, strlen(info), 50);
+    	     // 调试输出当前脉冲数据
+    	     char info1[100] = "Pace:";
+    	     sprintf(info1 + strlen(info1), " L: %6.2f", Currentspeeds.wheel_L);
+    	     sprintf(info1 + strlen(info1), " R: %6.2f\n", Currentspeeds.wheel_R);
+    	     HAL_UART_Transmit(&huart1, (uint8_t*)info1, strlen(info1), 100);
+    	     debug = 0;
+    	 }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -158,10 +228,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -171,105 +245,34 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
-
-  /* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOH_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-
-  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if(htim == (&htim6) /*&& Pidupdateflag == 0*/)
+  {
+		 Currentspeeds.wheel_R = CalculatePulse(GetEncoderPulse_2());
+		 Currentspeeds.wheel_L = -CalculatePulse(GetEncoderPulse_3());
+	  Pidupdateflag = 1;
+  }
+  else if(htim == (&htim7))
+  {
+	  debug = 1;
+
+  }
+}
+
 int checkSum(char RxBuffer[])
 {
     int sum = 0;
