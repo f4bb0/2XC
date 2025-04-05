@@ -1,0 +1,27 @@
+/Debug/
+/Drivers/
+/.settings/
+
+/Debug
+/Drivers
+/.settings
+
+# 编译输出
+*.class
+*.o
+*.obj
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 其他
+*.log
+*.launch
+*.ld
+.settings/language.settings.xml
