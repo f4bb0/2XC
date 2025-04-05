@@ -23,9 +23,23 @@ PID_t turn_pid = {
     .error_sum_max = TURN_I_MAX
 };
 
+//轮速PID控制
+PID_t wheel_pid_L = {
+    .Kp = WHEEL_PID_KP,
+    .Ki = WHEEL_PID_KI,
+    .Kd = WHEEL_PID_KD,
+    .error_sum_max = WHEEL_I_MAX
+};
+PID_t wheel_pid_R = {
+    .Kp = WHEEL_PID_KP,
+    .Ki = WHEEL_PID_KI,
+    .Kd = WHEEL_PID_KD,
+    .error_sum_max = WHEEL_I_MAX
+};
+
 WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed, 
                    float target_speed, float target_angular_velocity,
-                   PID_t *angle_pid, PID_t *speed_pid, PID_t *turn_pid) {
+                   PID_t *angle_pid, PID_t *speed_pid, PID_t *turn_pid, PID_t *wheel_pid_L, PID_t *wheel_pid_R) {
     // 1. 直立环控制（角度环）
     float angle_error = -(imu.angle.pitch - (1.2f));
     angle_pid->error = angle_error;
@@ -71,37 +85,23 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
         .wheel_R = balance_output + speed_diff * 0.5f
     };
 
-    // 5. 轮速PID控制
-    static PID_t wheel_pid_L = {
-        .Kp = WHEEL_PID_KP,
-        .Ki = WHEEL_PID_KI,
-        .Kd = WHEEL_PID_KD,
-        .error_sum_max = WHEEL_I_MAX
-    };
-    static PID_t wheel_pid_R = {
-        .Kp = WHEEL_PID_KP,
-        .Ki = WHEEL_PID_KI,
-        .Kd = WHEEL_PID_KD,
-        .error_sum_max = WHEEL_I_MAX
-    };
-
     // 左轮PID
-    wheel_pid_L.error = target.wheel_L - current_speed.wheel_L;
-    float wheel_L_output = wheel_pid_L.Kp * wheel_pid_L.error +
-                          wheel_pid_L.Ki * wheel_pid_L.error_sum +
-                          wheel_pid_L.Kd * (wheel_pid_L.error - wheel_pid_L.error_last);
-    wheel_pid_L.error_last = wheel_pid_L.error;
-    wheel_pid_L.error_sum += wheel_pid_L.error;
-    wheel_pid_L.error_sum = fminf(fmaxf(wheel_pid_L.error_sum, -wheel_pid_L.error_sum_max), wheel_pid_L.error_sum_max);
+    wheel_pid_L->error = target.wheel_L - current_speed.wheel_L;
+    float wheel_L_output = wheel_pid_L->Kp * wheel_pid_L->error +
+                          wheel_pid_L->Ki * wheel_pid_L->error_sum +
+                          wheel_pid_L->Kd * (wheel_pid_L->error - wheel_pid_L->error_last);
+    wheel_pid_L->error_last = wheel_pid_L->error;
+    wheel_pid_L->error_sum += wheel_pid_L->error;
+    wheel_pid_L->error_sum = fminf(fmaxf(wheel_pid_L->error_sum, -wheel_pid_L->error_sum_max), wheel_pid_L->error_sum_max);
 
     // 右轮PID
-    wheel_pid_R.error = target.wheel_R - current_speed.wheel_R;
-    float wheel_R_output = wheel_pid_R.Kp * wheel_pid_R.error +
-                          wheel_pid_R.Ki * wheel_pid_R.error_sum +
-                          wheel_pid_R.Kd * (wheel_pid_R.error - wheel_pid_R.error_last);
-    wheel_pid_R.error_last = wheel_pid_R.error;
-    wheel_pid_R.error_sum += wheel_pid_R.error;
-    wheel_pid_R.error_sum = fminf(fmaxf(wheel_pid_R.error_sum, -wheel_pid_R.error_sum_max), wheel_pid_R.error_sum_max);
+    wheel_pid_R->error = target.wheel_R - current_speed.wheel_R;
+    float wheel_R_output = wheel_pid_R->Kp * wheel_pid_R->error +
+                          wheel_pid_R->Ki * wheel_pid_R->error_sum +
+                          wheel_pid_R->Kd * (wheel_pid_R->error - wheel_pid_R->error_last);
+    wheel_pid_R->error_last = wheel_pid_R->error;
+    wheel_pid_R->error_sum += wheel_pid_R->error;
+    wheel_pid_R->error_sum = fminf(fmaxf(wheel_pid_R->error_sum, -wheel_pid_R->error_sum_max), wheel_pid_R->error_sum_max);
 
     // 最终输出
     WheelSpeeds output = {

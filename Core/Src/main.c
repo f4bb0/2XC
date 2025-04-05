@@ -181,19 +181,20 @@ int main(void)
     if(RxSucceeflag2 == 1)
     {
         //HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
-//
-//        memset(TxBuffer1, 0x00, sizeof(TxBuffer1));
-//        sprintf(TxBuffer1, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
-//                sensorData.gyro.x, sensorData.gyro.y, sensorData.gyro.z,
-//                sensorData.angle.roll, sensorData.angle.pitch, sensorData.angle.yaw);
-//        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer1, strlen(TxBuffer1), 100);
-//
+
+        memset(TxBuffer1, 0x00, sizeof(TxBuffer1));
+        sprintf(TxBuffer1, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
+                sensorData.gyro.x, sensorData.gyro.y, sensorData.gyro.z,
+                sensorData.angle.roll, sensorData.angle.pitch, sensorData.angle.yaw);
+        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer1, strlen(TxBuffer1), 100);
+
         RxSucceeflag2 = 0;
     }
     if(Pidupdateflag == 1){
     	MotorRun(balance(sensorData, Currentspeeds,
         TargetSpeed, TargetOmega,
-        &angle_pid, &speed_pid, &turn_pid));
+        &angle_pid, &speed_pid, &turn_pid, &wheel_pid_L, &wheel_pid_R));
+    	HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_10);
     }
     if(debug == 1){
 

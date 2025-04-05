@@ -60,9 +60,9 @@ typedef struct {
 #define TURN_PID_KD     0.1f
 
 // Wheel PID Constants 
-#define WHEEL_PID_KP    1.8f
-#define WHEEL_PID_KI    1.0f
-#define WHEEL_PID_KD    0.0000f
+#define WHEEL_PID_KP    2.0f
+#define WHEEL_PID_KI    0.0f
+#define WHEEL_PID_KD    0.000001f
 #define WHEEL_TIME_CONSTANT 0.1f
 #define WHEEL_I_MAX ((MAX_SPEED * WHEEL_TIME_CONSTANT) / WHEEL_PID_KI)
 
@@ -78,12 +78,14 @@ typedef struct {
 
 // Function declaration
 WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed, 
-                    float target_speed, float target_angular_velocity,
-                    PID_t *angle_pid, PID_t *speed_pid, PID_t *turn_pid);
+        float target_speed, float target_angular_velocity,
+        PID_t *angle_pid, PID_t *speed_pid, PID_t *turn_pid, PID_t *wheel_pid_L, PID_t *wheel_pid_R);
 
 // Global PID controllers
 extern PID_t angle_pid;
 extern PID_t speed_pid;
 extern PID_t turn_pid;
+extern PID_t wheel_pid_L;
+extern PID_t wheel_pid_R;
 
 #endif // __PID_H
