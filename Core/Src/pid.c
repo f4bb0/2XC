@@ -41,7 +41,7 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
                    float target_speed, float target_angular_velocity,
                    PID_t *angle_pid, PID_t *speed_pid, PID_t *turn_pid, PID_t *wheel_pid_L, PID_t *wheel_pid_R) {
     // 1. 直立环控制（角度环）
-    float angle_error = -(imu.angle.pitch - (1.0f));  // 调整目标角度为 1.0 度
+    float angle_error = -(imu.angle.pitch - (0.1f));  // 调整目标角度为 1.0 度
     angle_pid->error = angle_error;
     float angle_output = angle_pid->Kp * angle_pid->error + 
                          angle_pid->Ki * angle_pid->error_sum +
@@ -114,5 +114,5 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
     output.wheel_R = fminf(fmaxf(output.wheel_R, -MAX_SPEED), MAX_SPEED);
 
     // 返回输出结构体
-    return output;
+    return target;
 }

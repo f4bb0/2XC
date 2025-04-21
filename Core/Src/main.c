@@ -66,9 +66,10 @@ SensorData sensorData = {0};  // Initialize all values to 0
 // Z轴角度归零指令
 uint8_t hexData[] = {0xFF, 0xAA, 0x52};
 
+
 WheelSpeeds Currentspeeds = {0}; // Initialize all values to 0
 int TargetSpeed = 0, TargetOmega = 0;
-bool Speedupdateflag = 0, Pidupdateflag = 0, debug = 0;
+bool Speedupdateflag = 0, Pidupdateflag = 0, debug = 0,stop=0;
 
 /* USER CODE END PV */
 
@@ -80,30 +81,30 @@ void MotorRun(WheelSpeeds speeds)
     // 左前轮 (FL)
     if (speeds.wheel_L == 0) {
         // Brake - set both channels high
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
     } else if (speeds.wheel_L > 0) {
         // Forward
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, speeds.wheel_L);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, speeds.wheel_L+DEAD);
     } else {
         // Backward
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, -speeds.wheel_L);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, -speeds.wheel_L+DEAD);
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0);
     }
 
     // 右前轮 (FR) 
     if (speeds.wheel_R == 0) {
         // Brake - set both channels high
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED);
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
     } else if (speeds.wheel_R > 0) {
         // Forward
         __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, 0);
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, speeds.wheel_R);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, speeds.wheel_R+DEAD);
     } else {
         // Backward
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, -speeds.wheel_R);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, -speeds.wheel_R+DEAD);
         __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, 0);
     }
 }
@@ -171,16 +172,19 @@ int main(void)
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim5, TIM_CHANNEL_ALL);
 
-  //MotorRun(1000,1000);
+//  MotorRun(speed);
+  TargetSpeed=0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
     if(RxSucceeflag2 == 1)
     {
-        //HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
+       // HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
+    	//上面其他作用
 
         memset(TxBuffer1, 0x00, sizeof(TxBuffer1));
         sprintf(TxBuffer1, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
@@ -190,11 +194,24 @@ int main(void)
 
         RxSucceeflag2 = 0;
     }
+
+
     if(Pidupdateflag == 1){
+
+    	if(stop==0){
     	MotorRun(balance(sensorData, Currentspeeds,
         TargetSpeed, TargetOmega,
         &angle_pid, &speed_pid, &turn_pid, &wheel_pid_L, &wheel_pid_R));
     	HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_10);
+    	}
+    	else
+    	{
+    	    	         	    	 __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
+    	    	         	    	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
+    	    	         	    	   __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
+    	    	         	    	   __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
+    	    	         	        }
+    	Pidupdateflag = 0;
     }
     if(debug == 1){
 
@@ -210,6 +227,12 @@ int main(void)
     	     sprintf(info1 + strlen(info1), " R: %6.2f\n", Currentspeeds.wheel_R);
     	     HAL_UART_Transmit(&huart1, (uint8_t*)info1, strlen(info1), 100);
     	     debug = 0;
+    	     if(sensorData.angle.pitch>=75||sensorData.angle.pitch<=-75){
+    	    	 stop=1;
+    	     }
+    	     else
+    	    	 stop=0;
+
     	 }
     /* USER CODE END WHILE */
 

@@ -44,26 +44,27 @@ typedef struct {
 // Robot physical parameters
 #define WHEEL_DISTANCE 0.2f
 #define WHEEL_RADIUS  0.05f
-#define MAX_SPEED 1000.0f
+#define MAX_SPEED 900.0f
+#define DEAD (1000.f-MAX_SPEED)
 
 // PID Constants
-#define ANGLE_PID_KP    15.0f
-#define ANGLE_PID_KI    3.0f
-#define ANGLE_PID_KD    0.01f
+#define ANGLE_PID_KP    27.5f
+#define ANGLE_PID_KI    0.0f
+#define ANGLE_PID_KD    7.0f
 
-#define SPEED_PID_KP    1.0f   
-#define SPEED_PID_KI    0.1f 
-#define SPEED_PID_KD    0.05f 
+#define SPEED_PID_KP    0.0f
+#define SPEED_PID_KI    0.0f
+#define SPEED_PID_KD    0.0f
 
-#define TURN_PID_KP     2.5f   
-#define TURN_PID_KI     0.1f   
-#define TURN_PID_KD     0.2f   
+#define TURN_PID_KP     0.0f
+#define TURN_PID_KI     0.0f
+#define TURN_PID_KD     0.0f
 
 // Wheel PID Constants 
-#define WHEEL_PID_KP    2.0f
+#define WHEEL_PID_KP    0.0f
 #define WHEEL_PID_KI    0.0f
 #define WHEEL_PID_KD    0.000001f
-#define WHEEL_TIME_CONSTANT 0.1f
+#define WHEEL_TIME_CONSTANT 0.0f
 #define WHEEL_I_MAX ((MAX_SPEED * WHEEL_TIME_CONSTANT) / WHEEL_PID_KI)
 
 // Time constants
