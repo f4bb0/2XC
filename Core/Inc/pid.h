@@ -42,27 +42,28 @@ typedef struct {
 } PID_t;
 
 // Robot physical parameters
-#define WHEEL_DISTANCE 0.2f
-#define WHEEL_RADIUS  0.05f
-#define MAX_SPEED 1000.0f
+#define WHEEL_DISTANCE 0.16f
+#define WHEEL_RADIUS  0.035f
+#define MAX_SPEED 750.0f
+#define DEAD (1000.f-MAX_SPEED)
 
 // PID Constants
-#define ANGLE_PID_KP    10.0f
-#define ANGLE_PID_KI    2.0f
-#define ANGLE_PID_KD    0.00001f
+#define ANGLE_PID_KP    25.0f
+#define ANGLE_PID_KI    0.00f
+#define ANGLE_PID_KD    0.0f
 
-#define SPEED_PID_KP    0.8f
-#define SPEED_PID_KI    0.05f
-#define SPEED_PID_KD    0.1f
+#define SPEED_PID_KP    0.0f
+#define SPEED_PID_KI    0.0f
+#define SPEED_PID_KD    0.0f
 
-#define TURN_PID_KP     2.0f
-#define TURN_PID_KI     0.0f
-#define TURN_PID_KD     0.1f
+#define TURN_PID_KP     0.0f
+#define TURN_PID_KI     0.00f
+#define TURN_PID_KD     0.0f
 
 // Wheel PID Constants 
-#define WHEEL_PID_KP    2.0f
-#define WHEEL_PID_KI    0.0f
-#define WHEEL_PID_KD    0.000001f
+#define WHEEL_PID_KP    0.5f
+#define WHEEL_PID_KI    0.01f
+#define WHEEL_PID_KD    0.001f
 #define WHEEL_TIME_CONSTANT 0.1f
 #define WHEEL_I_MAX ((MAX_SPEED * WHEEL_TIME_CONSTANT) / WHEEL_PID_KI)
 
@@ -72,7 +73,7 @@ typedef struct {
 #define TURN_TIME_CONSTANT  0.1f
 
 // Integral limits
-#define ANGLE_I_MAX ((MAX_SPEED * ANGLE_TIME_CONSTANT) / ANGLE_PID_KI)
+#define ANGLE_I_MAX 1//((MAX_SPEED * ANGLE_TIME_CONSTANT) / ANGLE_PID_KI)
 #define SPEED_I_MAX ((MAX_SPEED * SPEED_TIME_CONSTANT) / SPEED_PID_KI)
 #define TURN_I_MAX  ((MAX_SPEED * TURN_TIME_CONSTANT) / TURN_PID_KI)
 
