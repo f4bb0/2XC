@@ -41,7 +41,7 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
                    float target_speed, float target_angular_velocity,
                    PID_t *angle_pid, PID_t *speed_pid, PID_t *turn_pid, PID_t *wheel_pid_L, PID_t *wheel_pid_R) {
     // 1. 直立环控制（角度环）
-    float angle_error = -(imu.angle.pitch - (0.1f));  // 调整目标角度为 1.0 度
+    float angle_error = -(imu.angle.pitch - (-1.8f));  // 调整目标角度为 1.0 度
     angle_pid->error = angle_error;
     float angle_output = angle_pid->Kp * angle_pid->error + 
                          angle_pid->Ki * angle_pid->error_sum +
@@ -61,9 +61,9 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
     speed_pid->error_sum = fminf(fmaxf(speed_pid->error_sum, -speed_pid->error_sum_max), speed_pid->error_sum_max);
     
     // 3. 转向环控制
-    float current_angular_velocity = (current_speed.wheel_R - current_speed.wheel_L) 
+    float current_angular_velocity = (current_speed.wheel_R - current_speed.wheel_L)
                                    * WHEEL_RADIUS / WHEEL_DISTANCE;
-    
+
     turn_pid->error = target_angular_velocity - current_angular_velocity;
     float turn_output = turn_pid->Kp * turn_pid->error +
                        turn_pid->Ki * turn_pid->error_sum +
@@ -71,10 +71,10 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
     turn_pid->error_last = turn_pid->error;
     turn_pid->error_sum += turn_pid->error;
     turn_pid->error_sum = fminf(fmaxf(turn_pid->error_sum, -turn_pid->error_sum_max), turn_pid->error_sum_max);
-    
+
     // 将转向输出转换为轮子速度差
     float speed_diff = turn_output * WHEEL_DISTANCE;
-    
+
     // 4. 综合输出计算
     float tilt_compensation = 0.1f * speed_pid->error;
     float balance_output = angle_output + speed_output + tilt_compensation;

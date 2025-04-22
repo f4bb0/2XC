@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -42,6 +43,7 @@
 /* USER CODE BEGIN PD */
 #define RXBUFFERSIZE  255     //最大的接受字节数
 #define TXBUFFERSIZE  255     //最大发送字节数
+#define MAX_DUTY 1000
 //#define MAX_SPEED 1000
 /* USER CODE END PD */
 
@@ -62,7 +64,7 @@ char TxBuffer2[TXBUFFERSIZE];   //发送数据
 uint8_t RxSucceeflag2 = 0;    //接受成功标志
 
 SensorData sensorData = {0};  // Initialize all values to 0
-
+float Batvol=0;
 // Z轴角度归零指令
 uint8_t hexData[] = {0xFF, 0xAA, 0x52};
 
@@ -76,35 +78,56 @@ bool Speedupdateflag = 0, Pidupdateflag = 0, debug = 0,stop=0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+/**
+ * @param pid_out  PID 输出，范围 [0,1000]
+ * @param voltage  当前电池电压，范围约 11.1–12.6 V
+ * @return         PWM 占空比 duty，范围 [0,1000]
+ */
+float out2duty(float pid_out, float voltage) {
+    // 1. 计算起动死区对应的最小占空比
+    const float V_start = 2.2f;      // 起转电压
+    float duty_min = V_start / voltage * 1000.0f;
+
+    // 2. 计算满转对应的最大占空比（不超过 1000）
+    const float V_full  = 12.0f;     // 满转电压
+    float duty_max = V_full / voltage * 1000.0f;
+    if (duty_max > 1000.0f) duty_max = 1000.0f;
+
+    // 3. 线性映射
+    float duty_range = duty_max - duty_min;
+    return duty_min + (pid_out / 1000.0f) * duty_range;
+}
 void MotorRun(WheelSpeeds speeds)
 {
+	float voltage= Batvol;         // 获取转换结果
+
     // 左前轮 (FL)
     if (speeds.wheel_L == 0) {
         // Brake - set both channels high
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_DUTY);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_DUTY);
     } else if (speeds.wheel_L > 0) {
         // Forward
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, speeds.wheel_L+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, out2duty(speeds.wheel_L,voltage));
     } else {
         // Backward
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, -speeds.wheel_L+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, out2duty(speeds.wheel_L,voltage));
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0);
     }
 
     // 右前轮 (FR) 
     if (speeds.wheel_R == 0) {
         // Brake - set both channels high
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_DUTY);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_DUTY);
     } else if (speeds.wheel_R > 0) {
         // Forward
         __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, 0);
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, speeds.wheel_R+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, out2duty(speeds.wheel_R,voltage));
     } else {
         // Backward
-        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, -speeds.wheel_R+DEAD);
+        __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, out2duty(speeds.wheel_R,voltage));
         __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, 0);
     }
 }
@@ -152,6 +175,7 @@ int main(void)
   MX_TIM7_Init();
   MX_TIM9_Init();
   MX_TIM1_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   // 确保正确启动第一次接收
@@ -167,6 +191,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1); 
   HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
+  HAL_ADC_Start(&hadc1);
   HAL_TIM_Base_Start_IT(&htim6);
   HAL_TIM_Base_Start_IT(&htim7); //debug
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
@@ -174,13 +199,16 @@ int main(void)
 
 //  MotorRun(speed);
   TargetSpeed=0;
+
+  HAL_ADC_PollForConversion(&hadc1, 50); // 等待转换完成
+  Batvol=(HAL_ADC_GetValue(&hadc1) / 4095.0) * 3.3*11;           // 获取转换结果
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
 //    if(RxSucceeflag2 == 1)
 //    {
 //      // HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
@@ -195,7 +223,7 @@ int main(void)
 //        RxSucceeflag2 = 0;
 //    }
 
-//
+
 //    if(Pidupdateflag == 1){
 //
 //    	if(stop==0){
@@ -204,13 +232,12 @@ int main(void)
 //        &angle_pid, &speed_pid, &turn_pid, &wheel_pid_L, &wheel_pid_R));
 //    	HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_10);
 //    	}
-//    	else
-//    	{
-//    	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
-//          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
-//    	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
-//    	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
-//    	    	         	        }
+//    	else{
+//    	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_DUTY);
+//    	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_DUTY);
+//    	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_DUTY);
+//    	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_DUTY);
+//    	}
 //    	Pidupdateflag = 0;
 //    }
     if(debug == 1){
@@ -226,7 +253,8 @@ int main(void)
 //    	     sprintf(info1 + strlen(info1), " L: %6.2f", Currentspeeds.wheel_L);
 //    	     sprintf(info1 + strlen(info1), " R: %6.2f\n", Currentspeeds.wheel_R);
 //    	     HAL_UART_Transmit(&huart1, (uint8_t*)info1, strlen(info1), 100);
-//    	     debug = 0;
+
+    	     debug = 0;
     	     if(sensorData.angle.pitch>=60||sensorData.angle.pitch<=-60){
     	    	 stop=1;
     	     }
@@ -302,12 +330,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		     	}
 		     	else
 		     	{
-		     	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
-		           __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
-		     	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
-		     	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
+		     	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_DUTY);
+		     	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_DUTY);
+		     	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_DUTY);
+		     	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_DUTY);
 		     	}
-//	  Pidupdateflag = 1;
+	  Pidupdateflag = 1;
   }
   else if(htim == (&htim7))
   {

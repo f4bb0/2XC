@@ -44,13 +44,13 @@ typedef struct {
 // Robot physical parameters
 #define WHEEL_DISTANCE 0.16f
 #define WHEEL_RADIUS  0.035f
-#define MAX_SPEED 750.0f
-#define DEAD (1000.f-MAX_SPEED)
+#define MAX_SPEED 1000.0f
+//#define DEAD (1000.f-MAX_SPEED)
 
 // PID Constants
 #define ANGLE_PID_KP    25.0f
-#define ANGLE_PID_KI    0.00f
-#define ANGLE_PID_KD    0.0f
+#define ANGLE_PID_KI    0.0f//600.00f
+#define ANGLE_PID_KD    18.0f
 
 #define SPEED_PID_KP    0.0f
 #define SPEED_PID_KI    0.0f
@@ -73,9 +73,12 @@ typedef struct {
 #define TURN_TIME_CONSTANT  0.1f
 
 // Integral limits
-#define ANGLE_I_MAX 1//((MAX_SPEED * ANGLE_TIME_CONSTANT) / ANGLE_PID_KI)
-#define SPEED_I_MAX ((MAX_SPEED * SPEED_TIME_CONSTANT) / SPEED_PID_KI)
-#define TURN_I_MAX  ((MAX_SPEED * TURN_TIME_CONSTANT) / TURN_PID_KI)
+//#define ANGLE_I_MAX ((MAX_SPEED * ANGLE_TIME_CONSTANT))
+//#define SPEED_I_MAX ((MAX_SPEED * SPEED_TIME_CONSTANT))
+//#define TURN_I_MAX  ((MAX_SPEED * TURN_TIME_CONSTANT))
+#define ANGLE_I_MAX ((ANGLE_PID_KI * 0.0001))
+#define SPEED_I_MAX ((SPEED_PID_KI * 0.4))
+#define TURN_I_MAX  ((TURN_PID_KI * 0.4))
 
 // Function declaration
 WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed, 
