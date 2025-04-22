@@ -181,53 +181,53 @@ int main(void)
   while (1)
   {
 
-    if(RxSucceeflag2 == 1)
-    {
-       // HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
-    	//上面其他作用
+//    if(RxSucceeflag2 == 1)
+//    {
+//      // HAL_UART_Transmit(&huart2, hexData, sizeof(hexData), HAL_MAX_DELAY);
+//    	//上面其他作用
+//
+//        memset(TxBuffer1, 0x00, sizeof(TxBuffer1));
+//        sprintf(TxBuffer1, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
+//                sensorData.gyro.x, sensorData.gyro.y, sensorData.gyro.z,
+//                sensorData.angle.roll, sensorData.angle.pitch, sensorData.angle.yaw);
+//        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer1, strlen(TxBuffer1), 100);
+//
+//        RxSucceeflag2 = 0;
+//    }
 
-        memset(TxBuffer1, 0x00, sizeof(TxBuffer1));
-        sprintf(TxBuffer1, "W_X%.2f,W_Y%.2f,W_Z%.2f,R%.2f,P%.2f,Y_A%.2f\r\n",
-                sensorData.gyro.x, sensorData.gyro.y, sensorData.gyro.z,
-                sensorData.angle.roll, sensorData.angle.pitch, sensorData.angle.yaw);
-        HAL_UART_Transmit(&huart1, (uint8_t*)TxBuffer1, strlen(TxBuffer1), 100);
-
-        RxSucceeflag2 = 0;
-    }
-
-
-    if(Pidupdateflag == 1){
-
-    	if(stop==0){
-    	MotorRun(balance(sensorData, Currentspeeds,
-        TargetSpeed, TargetOmega,
-        &angle_pid, &speed_pid, &turn_pid, &wheel_pid_L, &wheel_pid_R));
-    	HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_10);
-    	}
-    	else
-    	{
-    	    	         	    	 __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
-    	    	         	    	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
-    	    	         	    	   __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
-    	    	         	    	   __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
-    	    	         	        }
-    	Pidupdateflag = 0;
-    }
+//
+//    if(Pidupdateflag == 1){
+//
+//    	if(stop==0){
+//    	MotorRun(balance(sensorData, Currentspeeds,
+//        TargetSpeed, TargetOmega,
+//        &angle_pid, &speed_pid, &turn_pid, &wheel_pid_L, &wheel_pid_R));
+//    	HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_10);
+//    	}
+//    	else
+//    	{
+//    	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
+//          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
+//    	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
+//    	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
+//    	    	         	        }
+//    	Pidupdateflag = 0;
+//    }
     if(debug == 1){
-
-             /* ------------------调试用------------------*/
-    	        // 利用 sprintf 将结果附加到 info 数组后面
-    	     char info[100]="Target:";
-    	        sprintf(info + strlen(info), " S: %6d", TargetSpeed);
-    	        sprintf(info + strlen(info), " O: %6d\n", TargetOmega);
-    	        HAL_UART_Transmit(&huart1, (uint8_t*)info, strlen(info), 50);
-    	     // 调试输出当前脉冲数据
-    	     char info1[100] = "Pace:";
-    	     sprintf(info1 + strlen(info1), " L: %6.2f", Currentspeeds.wheel_L);
-    	     sprintf(info1 + strlen(info1), " R: %6.2f\n", Currentspeeds.wheel_R);
-    	     HAL_UART_Transmit(&huart1, (uint8_t*)info1, strlen(info1), 100);
-    	     debug = 0;
-    	     if(sensorData.angle.pitch>=75||sensorData.angle.pitch<=-75){
+//
+//             /* ------------------调试用------------------*/
+//    	        // 利用 sprintf 将结果附加到 info 数组后面
+//    	     char info[100]="Target:";
+//    	        sprintf(info + strlen(info), " S: %6d", TargetSpeed);
+//    	        sprintf(info + strlen(info), " O: %6d\n", TargetOmega);
+//    	        HAL_UART_Transmit(&huart1, (uint8_t*)info, strlen(info), 50);
+//    	     // 调试输出当前脉冲数据
+//    	     char info1[100] = "Pace:";
+//    	     sprintf(info1 + strlen(info1), " L: %6.2f", Currentspeeds.wheel_L);
+//    	     sprintf(info1 + strlen(info1), " R: %6.2f\n", Currentspeeds.wheel_R);
+//    	     HAL_UART_Transmit(&huart1, (uint8_t*)info1, strlen(info1), 100);
+//    	     debug = 0;
+    	     if(sensorData.angle.pitch>=60||sensorData.angle.pitch<=-60){
     	    	 stop=1;
     	     }
     	     else
@@ -294,7 +294,20 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
 		 Currentspeeds.wheel_R = CalculatePulse(GetEncoderPulse_2());
 		 Currentspeeds.wheel_L = -CalculatePulse(GetEncoderPulse_3());
-	  Pidupdateflag = 1;
+		     	if(stop==0){
+		     	MotorRun(balance(sensorData, Currentspeeds,
+		         TargetSpeed, TargetOmega,
+		         &angle_pid, &speed_pid, &turn_pid, &wheel_pid_L, &wheel_pid_R));
+		     	HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_10);
+		     	}
+		     	else
+		     	{
+		     	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, MAX_SPEED+DEAD);
+		           __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, MAX_SPEED+DEAD);
+		     	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_1, MAX_SPEED+DEAD);
+		     	  __HAL_TIM_SET_COMPARE(&htim9, TIM_CHANNEL_2, MAX_SPEED+DEAD);
+		     	}
+//	  Pidupdateflag = 1;
   }
   else if(htim == (&htim7))
   {

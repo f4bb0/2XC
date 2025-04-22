@@ -84,34 +84,34 @@ WheelSpeeds balance(SensorData imu, WheelSpeeds current_speed,
         .wheel_L = balance_output - speed_diff * 0.5f,
         .wheel_R = balance_output + speed_diff * 0.5f
     };
-
-    // 左轮PID
-    wheel_pid_L->error = target.wheel_L - current_speed.wheel_L;
-    float wheel_L_output = wheel_pid_L->Kp * wheel_pid_L->error +
-                          wheel_pid_L->Ki * wheel_pid_L->error_sum +
-                          wheel_pid_L->Kd * (wheel_pid_L->error - wheel_pid_L->error_last);
-    wheel_pid_L->error_last = wheel_pid_L->error;
-    wheel_pid_L->error_sum += wheel_pid_L->error;
-    wheel_pid_L->error_sum = fminf(fmaxf(wheel_pid_L->error_sum, -wheel_pid_L->error_sum_max), wheel_pid_L->error_sum_max);
-
-    // 右轮PID
-    wheel_pid_R->error = target.wheel_R - current_speed.wheel_R;
-    float wheel_R_output = wheel_pid_R->Kp * wheel_pid_R->error +
-                          wheel_pid_R->Ki * wheel_pid_R->error_sum +
-                          wheel_pid_R->Kd * (wheel_pid_R->error - wheel_pid_R->error_last);
-    wheel_pid_R->error_last = wheel_pid_R->error;
-    wheel_pid_R->error_sum += wheel_pid_R->error;
-    wheel_pid_R->error_sum = fminf(fmaxf(wheel_pid_R->error_sum, -wheel_pid_R->error_sum_max), wheel_pid_R->error_sum_max);
-
-    // 最终输出
-    WheelSpeeds output = {
-        .wheel_L = wheel_L_output,
-        .wheel_R = wheel_R_output
-    };
-
-    // 限幅保护 - 确保正负速度范围对称 (-MAX_SPEED to +MAX_SPEED)
-    output.wheel_L = fminf(fmaxf(output.wheel_L, -MAX_SPEED), MAX_SPEED);
-    output.wheel_R = fminf(fmaxf(output.wheel_R, -MAX_SPEED), MAX_SPEED);
+//
+//    // 左轮PID
+//    wheel_pid_L->error = target.wheel_L - current_speed.wheel_L;
+//    float wheel_L_output = wheel_pid_L->Kp * wheel_pid_L->error +
+//                          wheel_pid_L->Ki * wheel_pid_L->error_sum +
+//                          wheel_pid_L->Kd * (wheel_pid_L->error - wheel_pid_L->error_last);
+//    wheel_pid_L->error_last = wheel_pid_L->error;
+//    wheel_pid_L->error_sum += wheel_pid_L->error;
+//    wheel_pid_L->error_sum = fminf(fmaxf(wheel_pid_L->error_sum, -wheel_pid_L->error_sum_max), wheel_pid_L->error_sum_max);
+//
+//    // 右轮PID
+//    wheel_pid_R->error = target.wheel_R - current_speed.wheel_R;
+//    float wheel_R_output = wheel_pid_R->Kp * wheel_pid_R->error +
+//                          wheel_pid_R->Ki * wheel_pid_R->error_sum +
+//                          wheel_pid_R->Kd * (wheel_pid_R->error - wheel_pid_R->error_last);
+//    wheel_pid_R->error_last = wheel_pid_R->error;
+//    wheel_pid_R->error_sum += wheel_pid_R->error;
+//    wheel_pid_R->error_sum = fminf(fmaxf(wheel_pid_R->error_sum, -wheel_pid_R->error_sum_max), wheel_pid_R->error_sum_max);
+//
+//    // 最终输出
+//    WheelSpeeds output = {
+//        .wheel_L = wheel_L_output,
+//        .wheel_R = wheel_R_output
+//    };
+//
+//    // 限幅保护 - 确保正负速度范围对称 (-MAX_SPEED to +MAX_SPEED)
+//    output.wheel_L = fminf(fmaxf(output.wheel_L, -MAX_SPEED), MAX_SPEED);
+//    output.wheel_R = fminf(fmaxf(output.wheel_R, -MAX_SPEED), MAX_SPEED);
 
     // 返回输出结构体
     return target;
